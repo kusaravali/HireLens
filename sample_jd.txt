@@ -1,0 +1,14 @@
+Application Developer (Graduate Trainee)
+
+We are looking for a graduate trainee to join our application development team.
+
+Responsibilities
+- Build and maintain backend services and REST APIs using Python and FastAPI.
+- Design and query relational databases using SQL and PostgreSQL.
+- Write clean, tested code and use Git for version control.
+- Deploy applications using Docker and cloud platforms such as AWS.
+
+Requirements
+- Strong understanding of data structures and algorithms.
+- Experience with React or another modern JavaScript framework.
+- Good communication skills and ability to work in an agile team.

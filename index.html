@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HireLens</title>
+<style>
+  :root { --bg:#f6f7fb; --card:#fff; --text:#1c2333; --muted:#6b7385; --line:#e3e6ef;
+          --brand:#4f46e5; --good:#15803d; --goodbg:#dcfce7; --bad:#b91c1c; --badbg:#fee2e2;
+          --mid:#a16207; --midbg:#fef3c7; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background:var(--bg); color:var(--text); line-height:1.5; }
+  header { padding:28px 20px 8px; text-align:center; }
+  header h1 { margin:0; font-size:2rem; color:var(--brand); }
+  header p { margin:4px 0 0; color:var(--muted); }
+  main { max-width:1000px; margin:0 auto; padding:16px 20px 60px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .card h2 { margin:0 0 10px; font-size:1.05rem; }
+  textarea { width:100%; min-height:220px; padding:10px; border:1px solid var(--line);
+             border-radius:8px; font:inherit; resize:vertical; }
+  input[type=file] { margin-bottom:10px; max-width:100%; }
+  .hint { color:var(--muted); font-size:.85rem; margin:0 0 8px; }
+  button { background:var(--brand); color:#fff; border:0; border-radius:8px; padding:12px 22px;
+           font-size:1rem; cursor:pointer; margin-top:16px; }
+  button:disabled { opacity:.6; cursor:wait; }
+  #error { color:var(--bad); margin-top:12px; white-space:pre-wrap; }
+  #results { margin-top:24px; display:none; }
+  .scorebox { display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+  .score { font-size:3rem; font-weight:700; color:var(--brand); }
+  .verdict { font-size:1.2rem; font-weight:600; }
+  .sub { color:var(--muted); font-size:.9rem; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .chip { padding:3px 10px; border-radius:999px; font-size:.85rem; }
+  .chip.good { background:var(--goodbg); color:var(--good); }
+  .chip.bad { background:var(--badbg); color:var(--bad); }
+  .chip.neutral { background:#e8eaf3; color:var(--muted); }
+  .req { border-top:1px solid var(--line); padding:10px 0; }
+  .req:first-child { border-top:0; }
+  .tag { display:inline-block; font-size:.75rem; padding:2px 8px; border-radius:6px; margin-right:6px; }
+  .tag.strong { background:var(--goodbg); color:var(--good); }
+  .tag.partial { background:var(--midbg); color:var(--mid); }
+  .tag.gap { background:var(--badbg); color:var(--bad); }
+  .evidence { color:var(--muted); font-size:.9rem; margin-top:4px; }
+  pre { white-space:pre-wrap; font-family:inherit; margin:0; }
+  .section { margin-top:16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>HireLens</h1>
+  <p>Resume vs job description matching with explainable skill gaps</p>
+</header>
+
+<main>
+  <div class="grid">
+    <div class="card">
+      <h2>1. Your resume</h2>
+      <p class="hint">Upload a PDF, DOCX or TXT file, or paste the text below.</p>
+      <input type="file" id="resumeFile" accept=".pdf,.docx,.txt">
+      <textarea id="resumeText" placeholder="...or paste your resume text here"></textarea>
+    </div>
+    <div class="card">
+      <h2>2. Job description</h2>
+      <p class="hint">Paste the full job posting.</p>
+      <textarea id="jdText" placeholder="Paste the job description here"></textarea>
+    </div>
+  </div>
+
+  <button id="analyzeBtn">Analyze match</button>
+  <div id="error"></div>
+
+  <div id="results">
+    <div class="card section">
+      <div class="scorebox">
+        <div class="score" id="score">0</div>
+        <div>
+          <div class="verdict" id="verdict"></div>
+          <div class="sub" id="subscores"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid section">
+      <div class="card">
+        <h2>Skills you match</h2>
+        <div class="chips" id="matched"></div>
+      </div>
+      <div class="card">
+        <h2>Skills to add</h2>
+        <div class="chips" id="missing"></div>
+      </div>
+    </div>
+
+    <div class="card section">
+      <h2>Report <span class="sub" id="source"></span></h2>
+      <pre id="explanation"></pre>
+    </div>
+
+    <div class="card section">
+      <h2>Requirement by requirement</h2>
+      <div id="evidence"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+  function byId(id) { return document.getElementById(id); }
+
+  // Build elements with textContent so pasted text can never inject HTML
+  function makeEl(tag, className, text) {
+    var element = document.createElement(tag);
+    if (className) element.className = className;
+    if (text !== undefined) element.textContent = text;
+    return element;
+  }
+
+  function fillChips(containerId, items, cssClass, emptyText) {
+    var container = byId(containerId);
+    container.innerHTML = "";
+    if (!items.length) {
+      container.appendChild(makeEl("span", "chip neutral", emptyText));
+      return;
+    }
+    items.forEach(function (item) {
+      container.appendChild(makeEl("span", "chip " + cssClass, item));
+    });
+  }
+
+  function showResults(data) {
+    byId("score").textContent = data.score + "%";
+    byId("verdict").textContent = data.verdict;
+
+    var sub = "Requirement coverage: " + data.semantic_score + "%";
+    if (data.skill_score !== null) sub = "Skill match: " + data.skill_score + "%  |  " + sub;
+    byId("subscores").textContent = sub;
+
+    fillChips("matched", data.matched_skills, "good", "No listed skills detected in the job description");
+    fillChips("missing", data.missing_skills, "bad", "No missing skills found");
+
+    byId("explanation").textContent = data.explanation.text;
+    byId("source").textContent = data.explanation.source === "llm" ? "(AI written)" : "(built-in summary)";
+
+    var list = byId("evidence");
+    list.innerHTML = "";
+    data.evidence.forEach(function (item) {
+      var row = makeEl("div", "req");
+      var top = makeEl("div");
+      top.appendChild(makeEl("span", "tag " + item.status, item.status.toUpperCase()));
+      top.appendChild(document.createTextNode(item.requirement));
+      row.appendChild(top);
+      row.appendChild(makeEl("div", "evidence", "Closest resume text (" + item.similarity + "): " + item.best_resume_chunk));
+      list.appendChild(row);
+    });
+
+    byId("results").style.display = "block";
+    byId("results").scrollIntoView({ behavior: "smooth" });
+  }
+
+  async function analyze() {
+    var button = byId("analyzeBtn");
+    var errorBox = byId("error");
+    errorBox.textContent = "";
+
+    var form = new FormData();
+    form.append("jd_text", byId("jdText").value);
+
+    var file = byId("resumeFile").files[0];
+    if (file) {
+      form.append("resume_file", file);
+    } else {
+      form.append("resume_text", byId("resumeText").value);
+    }
+
+    button.disabled = true;
+    button.textContent = "Analyzing...";
+
+    try {
+      var response = await fetch("/api/analyze", { method: "POST", body: form });
+      var data = await response.json();
+      if (!response.ok) {
+        var message = typeof data.detail === "string" ? data.detail : "Please fill in both the resume and the job description.";
+        throw new Error(message);
+      }
+      showResults(data);
+    } catch (error) {
+      errorBox.textContent = error.message || "Something went wrong. Please try again.";
+    } finally {
+      button.disabled = false;
+      button.textContent = "Analyze match";
+    }
+  }
+
+  byId("analyzeBtn").addEventListener("click", analyze);
+</script>
+</body>
+</html>

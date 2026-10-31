@@ -1,0 +1,16 @@
+KUSA
+Python Full Stack Developer | Hyderabad
+
+SUMMARY
+Final-year Electronics and Communication Engineering student with hands-on experience building web applications using Python, FastAPI and SQL.
+
+SKILLS
+Python, Java, SQL, HTML, CSS, JavaScript, Git, FastAPI, SQLite, Arduino
+
+PROJECTS
+- Employee Management System: Built a desktop application in Java Swing with JDBC and MySQL supporting add, update, delete and search of employee records.
+- AI Sentiment Automation: Built a FastAPI service that runs a DistilBERT model to classify text sentiment and returns results as JSON.
+- Expense Tracker: Developed a REST API with FastAPI and SQLite to record and summarise personal expenses.
+
+EDUCATION
+B.Tech in Electronics and Communication Engineering, 2026
